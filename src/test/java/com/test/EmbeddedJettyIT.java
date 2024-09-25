@@ -1,42 +1,43 @@
 package com.test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
+import java.util.UUID;
 
 import org.apache.catalina.Context;
 import org.apache.catalina.core.StandardContext;
 import org.apache.catalina.startup.Tomcat;
+import org.jboss.weld.environment.se.Weld;
+import org.jboss.weld.environment.se.WeldContainer;
+import org.jboss.weld.environment.se.events.ContainerInitialized;
 import org.jboss.weld.environment.servlet.Listener;
 import org.jboss.weld.environment.servlet.WeldServletLifecycle;
-import org.jboss.weld.junit5.auto.EnableAutoWeld;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.test.config.Configuration;
 
-import jakarta.enterprise.inject.spi.CDI;
-
-@EnableAutoWeld
-@TestInstance(Lifecycle.PER_CLASS)
+// @EnableWeld
+// @TestInstance(Lifecycle.PER_CLASS)
 class EmbeddedJettyIT {
     private static final Logger log = LoggerFactory.getLogger(EmbeddedJettyIT.class);
 
     private Configuration configuration = new Configuration();
 
     private static final String CONTEXT_NAME = "/webapp";
-    private static final Path RESOURCE_BASE = Paths.get("target", "webapp");
-    private static Path webXml;
+    private static final Path RESOURCE_BASE = Paths.get("target", "classes").toAbsolutePath();
 
     private static Tomcat tomcat;
 
@@ -46,10 +47,6 @@ class EmbeddedJettyIT {
         if (Files.notExists(RESOURCE_BASE)) {
             throw new IllegalStateException("Resource base '" + RESOURCE_BASE.toAbsolutePath() + "' does not exist. Aborting!");
         }
-
-        URL url = EmbeddedJettyIT.class.getClassLoader().getResource("WEB-INF/web.xml");
-        if (url == null) { throw new IllegalStateException("WEB-INF/web.xml descriptor not found in classpath. Aborting!"); }
-        webXml = Paths.get(url.toURI());
 
         // Start the embedded webserver
         log.info("Starting embedded server...");
@@ -76,22 +73,38 @@ class EmbeddedJettyIT {
     }
 
     private static void startServer() throws Exception {
-        tomcat = new Tomcat();
-        tomcat.setPort(0);
-        tomcat.enableNaming();
+        String id = UUID.randomUUID().toString();
 
-        Context ctx = tomcat.addWebapp("/webapp", RESOURCE_BASE.toAbsolutePath().toString());
+        // First boostrap Weld SE
+        try (WeldContainer container = new Weld(id).initialize()) {
+            TestBean testBean = container.select(TestBean.class).get();
+            assertNotNull(testBean);
 
-        StandardContext standardCtx = (StandardContext) ctx;
-        standardCtx.setClearReferencesRmiTargets(false);
-        standardCtx.setClearReferencesThreadLocals(false);
-        standardCtx.setSkipMemoryLeakChecksOnJvmShutdown(true);
+            // @Initialized(ApplicationScoped.class) ContainerInitialized
+            List<Object> initEvents = testBean.getInitEvents();
+            assertEquals(1, initEvents.size());
+            Object event = initEvents.get(0);
+            assertTrue(event instanceof ContainerInitialized);
+            assertEquals(id, ((ContainerInitialized) event).getContainerId());
 
-        ctx.addApplicationListener(Listener.class.getName());
-        ctx.getServletContext().setAttribute(WeldServletLifecycle.BEAN_MANAGER_ATTRIBUTE_NAME, CDI.current().getBeanManager());
+            tomcat = new Tomcat();
+            tomcat.setBaseDir(Paths.get("target", "catalina.base").toAbsolutePath().toString());
+            tomcat.setPort(0);
+            tomcat.enableNaming();
 
-        tomcat.getConnector();
-        tomcat.start();
+            Context ctx = tomcat.addWebapp("/webapp", RESOURCE_BASE.toString());
+
+            StandardContext standardCtx = (StandardContext) ctx;
+            standardCtx.setClearReferencesRmiTargets(false);
+            standardCtx.setClearReferencesThreadLocals(false);
+            standardCtx.setSkipMemoryLeakChecksOnJvmShutdown(true);
+
+            ctx.addApplicationListener(Listener.class.getName());
+            ctx.getServletContext().setAttribute(WeldServletLifecycle.BEAN_MANAGER_ATTRIBUTE_NAME, container.getBeanManager());
+
+            tomcat.getConnector();
+            tomcat.start();
+        }
     }
 
     private static void stopJettyServer() throws Exception {
