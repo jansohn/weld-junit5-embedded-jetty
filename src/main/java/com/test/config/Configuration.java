@@ -2,8 +2,10 @@ package com.test.config;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Named;
 
 @ApplicationScoped
+@Named
 public class Configuration {
     private String property;
 

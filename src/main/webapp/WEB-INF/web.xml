@@ -5,6 +5,16 @@
     <display-name>Embedded web server with CDI</display-name>
 
     <welcome-file-list>
-        <welcome-file>index.html</welcome-file>
+        <welcome-file>index.xhtml</welcome-file>
     </welcome-file-list>
+
+    <!-- https://github.com/eclipse-ee4j/mojarra/blob/4.0/README.md#controller -->
+    <servlet>
+        <servlet-name>facesServlet</servlet-name>
+        <servlet-class>jakarta.faces.webapp.FacesServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>facesServlet</servlet-name>
+        <url-pattern>*.xhtml</url-pattern>
+    </servlet-mapping>
 </web-app>
