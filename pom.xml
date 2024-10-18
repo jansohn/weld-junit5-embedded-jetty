@@ -102,7 +102,7 @@
         <dependency>
             <groupId>org.jboss.arquillian.container</groupId>
             <artifactId>arquillian-tomcat-embedded-10</artifactId>
-            <version>1.2.1.Final</version>
+            <version>1.2.2.Final</version>
             <scope>test</scope>
         </dependency>
 
@@ -175,10 +175,49 @@
                 </configuration>
                 <executions>
                     <execution>
+                        <id>integration-test-without-weld-se</id>
                         <goals>
                             <goal>integration-test</goal>
+                        </goals>
+                        <configuration>
+                            <includes>
+                                <include>**/*WebserverIT.java</include>
+                            </includes>
+                            <argLine>--add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.rmi/sun.rmi.transport=ALL-UNNAMED</argLine>
+                            <classpathDependencyExcludes>
+                                <classpathDependencyExclude>
+                                    org.jboss.weld.se:weld-se-core</classpathDependencyExclude>
+                            </classpathDependencyExcludes>
+                            <summaryFile>
+                                ${project.build.directory}/failsafe-reports/failsafe-summary-without-weld-se.xml</summaryFile>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>integration-test-with-weld-se</id>
+                        <goals>
+                            <goal>integration-test</goal>
+                        </goals>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/*WebserverIT.java</exclude>
+                            </excludes>
+                            <summaryFile>
+                                ${project.build.directory}/failsafe-reports/failsafe-summary-with-weld-se.xml</summaryFile>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>verify</id>
+                        <goals>
                             <goal>verify</goal>
                         </goals>
+                        <configuration>
+                            <summaryFiles>
+                                <summaryFile>
+                                    ${project.build.directory}/failsafe-reports/failsafe-summary-without-weld-se.xml</summaryFile>
+                                <summaryFile>
+                                    ${project.build.directory}/failsafe-reports/failsafe-summary-with-weld-se.xml</summaryFile>
+                            </summaryFiles>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
