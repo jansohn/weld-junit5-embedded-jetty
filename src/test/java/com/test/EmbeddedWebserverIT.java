@@ -9,7 +9,9 @@ import org.jboss.arquillian.junit5.ArquillianExtension;
 import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
+import org.jboss.shrinkwrap.resolver.api.maven.ScopeType;
 import org.jboss.shrinkwrap.resolver.api.maven.archive.importer.MavenImporter;
+import org.jboss.shrinkwrap.resolver.api.maven.strategy.AcceptScopesStrategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,10 +35,10 @@ class EmbeddedWebserverIT {
     public static WebArchive createDeployment() {
         WebArchive webArchive = ShrinkWrap.create(MavenImporter.class)
                 .loadPomFromFile("pom.xml")
-                .importBuildOutput()
+                .importBuildOutput(new AcceptScopesStrategy(ScopeType.SYSTEM))
                 .as(WebArchive.class);
 
-        log.debug("{}", webArchive.toString(true));
+        log.info("{}", webArchive.toString(true));
 
         return webArchive;
     }
